@@ -283,7 +283,7 @@ class SlackBot extends Adapter
     channel = @client.getChannelGroupOrDMByName envelope.room
     channel.setTopic strings.join "\n"
   
-    typing: (envelope) =>
+  typing: (envelope) =>
     channel = @client.getChannelGroupOrDMByName envelope.room
 
     @client._send({
