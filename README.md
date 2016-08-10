@@ -6,6 +6,7 @@ This is a [Hubot](http://hubot.github.com/) adapter to use with [Slack](https://
 [![Coveralls](https://img.shields.io/coveralls/slackhq/hubot-slack.svg?maxAge=2592000)](https://coveralls.io/github/slackhq/hubot-slack)
 [![npm (scoped)](https://img.shields.io/npm/v/hubot-slack.svg?maxAge=2592000)](https://www.npmjs.com/package/hubot-slack)
 
+
 ## Getting Started
 
 #### Creating a new bot
@@ -44,6 +45,7 @@ This is a modified set of instructions based on the [instructions on the Hubot w
 
 ## Upgrading from version 2 or earlier of Hubot
 
+
 Version 3 of the hubot-slack adapter requires different server support to
 previous versions. If you have an existing "hubot" integration set up you'll
 need to upgrade:
@@ -75,3 +77,4 @@ If you're using the [hubot-auth](https://github.com/hubot-scripts/hubot-auth/) s
 ## Copyright
 
 Copyright &copy; 2014–2016 Slack Technologies, Inc. MIT License; see LICENSE for further details.
+

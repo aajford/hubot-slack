@@ -48,6 +48,7 @@ beforeEach ->
   @stubs.self_bot =
     name: 'self'
     id: 'B456'
+
     profile:
       email: 'self@example.com'
   @stubs.team =
