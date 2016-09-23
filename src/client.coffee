@@ -7,13 +7,15 @@ SLACK_CLIENT_OPTIONS =
 
 
 class SlackClient
-  
-  constructor: (options) ->
+
+  constructor: (options, robot) ->
     _.merge SLACK_CLIENT_OPTIONS, options
+
+    @robot = robot
 
     # RTM is the default communication client
     @rtm = new RtmClient options.token, options
-    
+
     # Web is the fallback for complex messages
     @web = new WebClient options.token, options
 
@@ -22,7 +24,6 @@ class SlackClient
 
     # Track listeners for easy clean-up
     @listeners = []
-
 
   ###
   Open connection to the Slack RTM API
@@ -36,7 +37,7 @@ class SlackClient
   ###
   on: (name, callback) ->
     @listeners.push(name)
-    
+
     # override message to format text
     if name is "message"
       @rtm.on name, (message) =>
@@ -64,21 +65,37 @@ class SlackClient
   Set a channel's topic
   ###
   setTopic: (id, topic) ->
-    @web.channels.setTopic(id, topic)
+    channel = @rtm.dataStore.getChannelGroupOrDMById(id)
+    @robot.logger.debug topic
+
+    type = channel.getType()
+    switch type
+      when "channel" then @web.channels.setTopic(id, topic)
+      # some groups are private channels which have a topic
+      # some groups are MPIMs which do not
+      when "group"
+          @web.groups.setTopic id, topic, (err,res) =>
+            if (err || !res.ok) then @robot.logger.debug "Cannot set topic in MPIM"
+      else @robot.logger.debug "Cannot set topic in "+type
 
 
   ###
   Send a message to Slack using the best client for the message type
   ###
   send: (envelope, message) ->
-    message = @format.outgoing(message)
+    if envelope.room
+      room = envelope.room
+    else if envelope.id #Maybe we were sent a user object or channel object. Use the id, in that case.
+      room = envelope.id
+
+    @robot.logger.debug "Sending to #{room}: #{message}"
+
+    options = { as_user: true, link_names: 1 }
 
     if typeof message isnt 'string'
-      @web.chat.postMessage(envelope.room, message.text, _.defaults(message, {'as_user': true}))
-    else if /<.+\|.+>/.test(message)
-      @web.chat.postMessage(envelope.room, message, {'as_user' : true})
+      @web.chat.postMessage(room, message.text, _.defaults(message, options))
     else
-      @rtm.sendMessage(message, envelope.room) # RTM behaves as though `as_user` is true already
+      @web.chat.postMessage(room, message, options)
 
 
 module.exports = SlackClient

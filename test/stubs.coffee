@@ -13,14 +13,31 @@ _ = require 'lodash'
 # Stubs are recreated before each test.
 beforeEach ->
   @stubs = {}
+
+  @stubs.send = (room, msg, opts) =>
+    @stubs._room = room
+    @stubs._opts = opts
+    if /^[UD@][\d\w]+/.test(room)
+      @stubs._dmmsg = msg
+    else
+      @stubs._msg = msg
+    msg
+
   @stubs.channel =
     name: 'general'
     id: 'C123'
     sendMessage: (msg) -> msg
+    getType: -> 'channel'
   @stubs.DM =
     name: 'User'
     id: 'D1232'
     sendMessage: (msg) -> msg
+    getType: -> 'dm'
+  @stubs.group =
+    name: 'Group'
+    id: 'G12324'
+    sendMessage: (msg) -> msg
+    getType: -> 'group'
   @stubs.user =
     name: 'name'
     id: 'U123'
@@ -55,11 +72,6 @@ beforeEach ->
     name: 'Example Team'
   # Slack client
   @stubs.client =
-    send: (env, msg) =>
-      if /user/.test(env.room)
-        @stubs._dmmsg = msg
-      else
-      @stubs._msg = msg
 
     dataStore:
       getUserById: (id) =>
@@ -94,14 +106,27 @@ beforeEach ->
       console.log(callback)
       callback(name)
     removeListener: (name) =>
-    sendMessage: (message, room) =>
-      @stubs._msg = message
-      @stubs._room = room
+    sendMessage: (msg, room) =>
+      @stubs.send room, msg
+    dataStore:
+      getUserById: (id) =>
+        switch id
+          when @stubs.user.id then @stubs.user
+          when @stubs.bot.id then @stubs.bot
+          when @stubs.self.id then @stubs.self
+          when @stubs.self_bot.id then @stubs.self_bot
+          else undefined
+      getChannelByName: (name) =>
+        switch name
+          when 'known_room' then {id: 'C00000004'}
+          else undefined
+      getChannelGroupOrDMById: (id) =>
+        switch id
+          when @stubs.channel.id then @stubs.channel
+          when @stubs.DM.id then @stubs.DM
   @stubs.chatMock =
-    postMessage: (room, messageText, message) =>
-      @stubs._msg = messageText
-      @stubs._opts = message
-      @stubs._room = room
+    postMessage: (msg, room, opts) =>
+      @stubs.send(msg, room, opts)
   @stubs.channelsMock =
     setTopic: (id, topic) =>
       @stubs._topic = topic
@@ -146,7 +171,7 @@ beforeEach ->
 
   @formatter = new SlackFormatter @stubs.client.dataStore
 
-  @client = new SlackClient token: 'xoxb-faketoken'
+  @client = new SlackClient {token: 'xoxb-faketoken'}, @stubs.robot
   _.merge @client.rtm, @stubs.rtm
   _.merge @client.web.chat, @stubs.chatMock
   _.merge @client.web.channels, @stubs.channelsMock

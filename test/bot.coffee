@@ -1,5 +1,6 @@
 should = require 'should'
 {Adapter, TextMessage, EnterMessage, LeaveMessage, TopicMessage, Message, CatchAllMessage} = require.main.require 'hubot'
+ReactionMessage = require '../src/reaction-message'
 
 describe 'Adapter', ->
   it 'Should initialize with a robot', ->
@@ -41,12 +42,18 @@ describe 'Send Messages', ->
   it 'Should open a DM channel if needed', ->
     msg = 'Test'
     @slackbot.send {room: 'name'}, msg
-    @stubs._msg.should.eql 'Test'
+    @stubs._msg.should.eql msg
 
   it 'Should use an existing DM channel if possible', ->
     msg = 'Test'
-    @slackbot.send {room: 'user2'}, msg
-    @stubs._dmmsg.should.eql 'Test'
+    @slackbot.send {room: '@user2'}, msg
+    @stubs._dmmsg.should.eql msg
+    @stubs._room.should.eql '@user2'
+
+  it 'Should send a message to a user', ->
+    @slackbot.send @stubs.user, 'message'
+    @stubs._dmmsg.should.eql 'message'
+    @stubs._room.should.eql @stubs.user.id
 
 
 describe 'Client sending message', ->
@@ -138,6 +145,36 @@ describe 'Handling incoming messages', ->
     should.equal (@stubs._received instanceof TopicMessage), true
     @stubs._received.user.id.should.equal @stubs.user.id
 
+  it 'Should handle reaction_added events as envisioned', ->
+    reactionMessage = {
+      type: 'reaction_added', user: @stubs.user.id, item_user: @stubs.self.id
+      item: { type: 'message', channel: @stubs.channel.id, ts: '1360782804.083113'
+      },
+      reaction: 'thumbsup', event_ts: '1360782804.083113'
+    }
+    @slackbot.reaction reactionMessage
+    should.equal (@stubs._received instanceof ReactionMessage), true
+    should.equal @stubs._received.user.id, @stubs.user.id
+    should.equal @stubs._received.user.room, @stubs.channel.id
+    should.equal @stubs._received.item_user.id, @stubs.self.id
+    should.equal @stubs._received.type, 'added'
+    should.equal @stubs._received.reaction, 'thumbsup'
+
+  it 'Should handle reaction_removed events as envisioned', ->
+    reactionMessage = {
+      type: 'reaction_removed', user: @stubs.user.id, item_user: @stubs.self.id
+      item: { type: 'message', channel: @stubs.channel.id, ts: '1360782804.083113'
+      },
+      reaction: 'thumbsup', event_ts: '1360782804.083113'
+    }
+    @slackbot.reaction reactionMessage
+    should.equal (@stubs._received instanceof ReactionMessage), true
+    should.equal @stubs._received.user.id, @stubs.user.id
+    should.equal @stubs._received.user.room, @stubs.channel.id
+    should.equal @stubs._received.item_user.id, @stubs.self.id
+    should.equal @stubs._received.type, 'removed'
+    should.equal @stubs._received.reaction, 'thumbsup'
+
   it 'Should handle unknown events as catchalls', ->
     @slackbot.message {subtype: 'hidey_ho', user: @stubs.user, channel: @stubs.channel}
     should.equal (@stubs._received instanceof CatchAllMessage), true
@@ -152,4 +189,14 @@ describe 'Handling incoming messages', ->
 
   it 'Should ignore messages it sent itself, if sent as a botuser', ->
     @slackbot.message { subtype: 'bot_message', bot: @stubs.self_bot, channel: @stubs.channel, text: 'Ignore me' }
+    should.equal @stubs._received, undefined
+
+  it 'Should ignore reaction events that it generated itself', ->
+    reactionMessage = { type: 'reaction_removed', user: @stubs.self.id, reaction: 'thumbsup', event_ts: '1360782804.083113' }
+    @slackbot.reaction reactionMessage
+    should.equal @stubs._received, undefined
+
+  it 'Should ignore reaction events that it generated itself as a botuser', ->
+    reactionMessage = { type: 'reaction_added', user: @stubs.self_bot.id, reaction: 'thumbsup', event_ts: '1360782804.083113' }
+    @slackbot.reaction reactionMessage
     should.equal @stubs._received, undefined
